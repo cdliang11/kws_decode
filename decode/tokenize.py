@@ -12,19 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 class tokenize:
+
     def __init__(self, unit_file):
-       self.unit2id = {}
-       self.id2unit = {}
-       with open(unit_file, 'r') as f:
-           for line in f:
-               unit, id = line.strip().split()
-               self.unit2id[unit] = int(id)
-               self.id2unit[int(id)] = unit
+        self.unit2id = {}
+        self.id2unit = {}
+        with open(unit_file, 'r') as f:
+            for line in f:
+                unit, id = line.strip().split()
+                self.unit2id[unit] = int(id)
+                self.id2unit[int(id)] = unit
 
     def detokenize(self, ids):
         tokens = []
         for id in ids:
             tokens.append(self.id2unit[id])
         return tokens
-

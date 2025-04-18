@@ -16,6 +16,7 @@ from typing import List
 
 import math
 
+
 def log_add(args: List[int]) -> float:
     """
     Stable log add
@@ -25,4 +26,3 @@ def log_add(args: List[int]) -> float:
     a_max = max(args)
     lsp = math.log(sum(math.exp(a - a_max) for a in args))
     return a_max + lsp
-

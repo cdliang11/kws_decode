@@ -1,2 +1,2 @@
 # kws_decode
-Common wake-up decoding strategies
+Common wake-up decoding search

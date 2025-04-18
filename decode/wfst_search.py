@@ -19,7 +19,9 @@ import math
 
 char_map = {2: 0, 1: 1, 3: 1112, 4: 1593, 5: 5239, 6: 5968}
 
+
 class LatticArc:
+
     def __init__(self, ilabel, olabel, weight, nextstate):
         self.ilabel = ilabel
         self.olabel = olabel
@@ -31,18 +33,19 @@ class Token:
     """Token used in token passing decode algorithm.
     The token can be linked by another token or None.
     """
+
     def __init__(self):
         self.active = False
         self.is_filler = True,
-        self.score = 0.0                                # 存储解码图上路径得分 log域相加
-        self.num_keyword_frames = 0                     # 统计解码图上路径上的唤醒词帧数
-        self.average_keyword_score = 0.0                # 唤醒词平均得分 score / 帧数 （忽略blank）
-        self.keyword = 0                                # 唤醒词id
-        self.num_frames_of_current_state = 0            # 当前状态自循环的帧数
-        self.num_keyword_states = 0                     # 唤醒词的state数
-        self.max_score_of_current_state = 0.0           # 当前state的最大得分
-        self.average_max_keyword_score = 0.0            # 平均最大得分
-        self.average_max_keyword_score_before = 0.0     # 上一个state的平均最大得分
+        self.score = 0.0  # 存储解码图上路径得分 log域相加
+        self.num_keyword_frames = 0  # 统计解码图上路径上的唤醒词帧数
+        self.average_keyword_score = 0.0  # 唤醒词平均得分 score / 帧数 （忽略blank）
+        self.keyword = 0  # 唤醒词id
+        self.num_frames_of_current_state = 0  # 当前状态自循环的帧数
+        self.num_keyword_states = 0  # 唤醒词的state数
+        self.max_score_of_current_state = 0.0  # 当前state的最大得分
+        self.average_max_keyword_score = 0.0  # 平均最大得分
+        self.average_max_keyword_score_before = 0.0  # 上一个state的平均最大得分
         self.keyword_score = []
 
     def reset(self):
@@ -59,30 +62,41 @@ class Token:
         self.average_max_keyword_score_before = 0.0
         self.keyword_score = []
 
-    def update(self, prev, olabel, is_self_arc, is_filler, is_blank, am_score, time):
-        if not self.active or (self.active and self.score < prev.score + am_score): # and self.score < prev.score + am_score):
+    def update(self, prev, olabel, is_self_arc, is_filler, is_blank, am_score,
+               time):
+        if not self.active or (self.active
+                               and self.score < prev.score + am_score
+                               ):  # and self.score < prev.score + am_score):
             # it's a keyword state
             if not is_filler:
                 self.score = prev.score + am_score
                 t = prev.num_keyword_frames
-                self.average_keyword_score = (am_score + prev.average_keyword_score * t) / (t + 1)
+                self.average_keyword_score = (
+                    am_score + prev.average_keyword_score * t) / (t + 1)
                 self.num_keyword_frames = t + 1
                 self.keyword_score = copy.deepcopy(prev.keyword_score)
                 if not is_blank:
                     if is_self_arc:
-                        self.num_frames_of_current_state = prev.num_frames_of_current_state + 1   # 统计自旋的次数
+                        self.num_frames_of_current_state = prev.num_frames_of_current_state + 1  # 统计自旋的次数
                         self.num_keyword_states = prev.num_keyword_states
-                        self.max_score_of_current_state = max(prev.max_score_of_current_state, am_score)
+                        self.max_score_of_current_state = max(
+                            prev.max_score_of_current_state, am_score)
                         self.average_max_keyword_score_before = prev.average_max_keyword_score
-                        self.keyword_score[-1] = self.max_score_of_current_state
+                        self.keyword_score[
+                            -1] = self.max_score_of_current_state
 
                     else:
                         self.num_frames_of_current_state = 1
                         self.num_keyword_states = prev.num_keyword_states + 1
                         self.max_score_of_current_state = am_score
                         self.average_max_keyword_score_before = prev.average_max_keyword_score
-                        self.keyword_score.append(self.max_score_of_current_state)
-                    self.average_max_keyword_score = (self.max_score_of_current_state + prev.average_max_keyword_score_before * (prev.num_keyword_states - 1)) / self.num_keyword_states
+                        self.keyword_score.append(
+                            self.max_score_of_current_state)
+                    self.average_max_keyword_score = (
+                        self.max_score_of_current_state +
+                        prev.average_max_keyword_score_before *
+                        (prev.num_keyword_states - 1)
+                    ) / self.num_keyword_states
                     if olabel != 0:
                         self.keyword = olabel
                 else:
@@ -97,6 +111,7 @@ class Token:
 
 
 class WfstDecoder:
+
     def __init__(self, fst_file, filler_table=None):
         self.fst = Fst.read(fst_file)
         self.filler_table = filler_table
@@ -110,7 +125,6 @@ class WfstDecoder:
         self.cur_tokens = [Token() for _ in range(self.fst.num_states())]
 
         self.reset()
-
 
     def end_detect(self):
         if self.cur_tokens and self.num_steps_decoded >= self.max_seq_len:
@@ -146,14 +160,18 @@ class WfstDecoder:
                         is_filler = self.is_filler(arc.ilabel)
                         is_self_arc = i == arc.nextstate
                         olabel = arc.olabel
-                        self.cur_tokens[arc.nextstate].update(tok, olabel, is_self_arc, is_filler, True, am_score, time)
+                        self.cur_tokens[arc.nextstate].update(
+                            tok, olabel, is_self_arc, is_filler, True,
+                            am_score, time)
                     else:
                         # emitting arc
                         am_score = ctc_probs[char_map[arc.ilabel]]  # log
                         is_filler = self.is_filler(arc.ilabel)
                         is_self_arc = i == arc.nextstate
                         olabel = arc.olabel
-                        self.cur_tokens[arc.nextstate].update(tok, olabel, is_self_arc, is_filler, False, am_score, time)
+                        self.cur_tokens[arc.nextstate].update(
+                            tok, olabel, is_self_arc, is_filler, False,
+                            am_score, time)
         # find best score
         best_state, best_final_state = 0, 0
         best_score, best_final_score = self.cur_tokens[0].score, 0.0
@@ -172,11 +190,12 @@ class WfstDecoder:
                     best_final_state = i
 
         if reach_final:
-            confidence = math.exp(self.cur_tokens[best_final_state].average_max_keyword_score)
+            confidence = math.exp(
+                self.cur_tokens[best_final_state].average_max_keyword_score)
             keyword = self.cur_tokens[best_final_state].keyword
-            if self.cur_tokens[best_final_state].num_keyword_frames > self.min_keyword_frames \
-                and self.cur_tokens[best_final_state].num_frames_of_current_state > self.min_frames_for_last_state \
-                and confidence > 0.5:
+            if self.cur_tokens[
+                    best_final_state].num_keyword_frames > self.min_keyword_frames and self.cur_tokens[
+                        best_final_state].num_frames_of_current_state > self.min_frames_for_last_state and confidence > 0.5:
                 legal = True
             else:
                 legal = False
@@ -186,7 +205,8 @@ class WfstDecoder:
             tok.reset()
 
         self.num_frames += 1
-        if self.num_frames > self.max_tokenpassing_frames and self.prev_tokens[best_state].is_filler:
+        if self.num_frames > self.max_tokenpassing_frames and self.prev_tokens[
+                best_state].is_filler:
             for i, tok in enumerate(self.prev_tokens):
                 tok.reset()
 
@@ -201,6 +221,7 @@ class WfstDecoder:
             legal = self.spot(ctc_probs[t], t)
             if legal:
                 print("time: ", t, "wake up")
+
 
 if __name__ == "__main__":
     fst_file = "data/TL.fst"

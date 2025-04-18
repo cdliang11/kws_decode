@@ -16,12 +16,15 @@ from typing import List
 from collections import defaultdict
 
 import torch
+import heapq
 
 from decode.utils import log_add
 
 
 def top_k_by_value(input_dict, k):
-    top_k_items = heapq.nlargest(k, input_dict.items(), key=lambda item : item[1])
+    top_k_items = heapq.nlargest(k,
+                                 input_dict.items(),
+                                 key=lambda item: item[1])
     # 提取键列表
     keys = [item[0] for item in top_k_items]
     # 提取值列表
@@ -30,6 +33,7 @@ def top_k_by_value(input_dict, k):
 
 
 class DecodeResult:
+
     def __init__(self,
                  tokens: List[int],
                  score: float = 0.0,
@@ -64,6 +68,7 @@ class DecodeResult:
 
 class PrefixScore:
     """ For CTC prefix beam search """
+
     def __init__(self,
                  s: float = float('-inf'),
                  ns: float = float('-inf'),
@@ -86,8 +91,12 @@ class PrefixScore:
     def times(self):
         return self.times_s if self.v_s > self.v_ns else self.times_ns
 
-def ctc_prefix_beam_search(ctc_probs: torch.Tensor, ctc_lens: torch.Tensor,
-                           beam_size: int, keywords_idx: List[int] = None) -> List[DecodeResult]:
+
+def ctc_prefix_beam_search(
+        ctc_probs: torch.Tensor,
+        ctc_lens: torch.Tensor,
+        beam_size: int,
+        keywords_idx: List[int] = None) -> List[DecodeResult]:
     """
         Returns:
             List[List[List[int]]]: nbest result for each utterance
@@ -110,10 +119,12 @@ def ctc_prefix_beam_search(ctc_probs: torch.Tensor, ctc_lens: torch.Tensor,
                 filter_logp = {}
                 for idx in keywords_idx:
                     filter_logp[idx] = logp[idx]
-                top_k_index, top_k_logp = top_k_by_value(filter_logp, beam_size)
+                top_k_index, top_k_logp = top_k_by_value(
+                    filter_logp, beam_size)
             else:
                 # 2.1 First beam prune: select topk best
-                top_k_logp, top_k_index_tmp = logp.topk(beam_size)  # (beam_size,)
+                top_k_logp, top_k_index_tmp = logp.topk(
+                    beam_size)  # (beam_size,)
                 top_k_index = [id.item() for id in top_k_index_tmp]
 
             for u in top_k_index:
@@ -123,15 +134,16 @@ def ctc_prefix_beam_search(ctc_probs: torch.Tensor, ctc_lens: torch.Tensor,
                     last = prefix[-1] if len(prefix) > 0 else None
                     if u == 0:  # blank
                         next_score = next_hyps[prefix]
-                        next_score.s = log_add([next_score.s,
-                                               prefix_score.score() + prob])
+                        next_score.s = log_add(
+                            [next_score.s,
+                             prefix_score.score() + prob])
                         next_score.v_s = prefix_score.viterbi_score() + prob
                         next_score.times_s = prefix_score.times().copy()
                     elif u == last:
                         #  Update *uu -> *u;
                         next_score1 = next_hyps[prefix]
-                        next_score1.ns = log_add([next_score1.ns,
-                                                 prefix_score.ns + prob])
+                        next_score1.ns = log_add(
+                            [next_score1.ns, prefix_score.ns + prob])
                         if next_score1.v_ns < prefix_score.v_ns + prob:
                             next_score1.vs_ns = prefix_score.v_ns + prob
                             if next_score1.cur_token_prob < prob:
@@ -143,8 +155,8 @@ def ctc_prefix_beam_search(ctc_probs: torch.Tensor, ctc_lens: torch.Tensor,
                         # Update *u-u -> *uu, - is for blank
                         n_prefix = prefix + (u, )
                         next_score2 = next_hyps[n_prefix]
-                        next_score2.ns = log_add([next_score2.ns,
-                                                 prefix_score.s + prob])
+                        next_score2.ns = log_add(
+                            [next_score2.ns, prefix_score.s + prob])
                         if next_score2.v_ns < prefix_score.v_s + prob:
                             next_score2.v_ns = prefix_score.v_s + prob
                             next_score2.cur_token_prob = prob
@@ -153,8 +165,9 @@ def ctc_prefix_beam_search(ctc_probs: torch.Tensor, ctc_lens: torch.Tensor,
                     else:
                         n_prefix = prefix + (u, )
                         next_score = next_hyps[n_prefix]
-                        next_score.ns = log_add([next_score.ns,
-                                                prefix_score.score() + prob])
+                        next_score.ns = log_add(
+                            [next_score.ns,
+                             prefix_score.score() + prob])
                         if next_score.v_ns < prefix_score.viterbi_score(
                         ) + prob:
                             next_score.v_ns = prefix_score.viterbi_score(

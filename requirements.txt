@@ -1,3 +1,4 @@
 numpy
 pynini
 torch
+pre-commit==3.5.0
